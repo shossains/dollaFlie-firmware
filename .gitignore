@@ -26,6 +26,7 @@ current_platform.mk
 **/__pycache__/**
 **/*.pyc
 
+
 bindings/build/*
 bindings/cffirmware_wrap.c
 dist/
@@ -38,6 +39,7 @@ docs/api/params.md_raw
 docs/api/log_param_doc.json
 docs/api
 
+vendor/
 build/
 # To avoid that /tools/build is ignored
 !/tools/*
