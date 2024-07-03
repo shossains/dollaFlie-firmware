@@ -3,6 +3,10 @@
 #include "commander.h"
 #include "debug.h"
 #include <stdio.h>
+// #include <lapacke.h>
+
+#include <gsl/gsl_matrix.h>
+#include <gsl/gsl_linalg.h>
 
 setpoint_t setpoint;
 uint8_t formationControl = 0;
@@ -176,3 +180,57 @@ void formationControlLoop(uint8_t droneId)
         break;
     }
 }
+
+void RAL(gsl_matrix *H_i, gsl_matrix *X_i, gsl_matrix *theta_i)
+{
+    gsl_matrix *H_i_transpose = gsl_matrix_alloc(H_i->size2, H_i->size1);
+    gsl_matrix_transpose_memcpy(H_i_transpose, H_i);
+
+    gsl_matrix *temp1 = gsl_matrix_alloc(H_i->size2, H_i->size2);
+    gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, H_i_transpose, H_i, 0.0, temp1);
+
+    gsl_matrix *temp2 = gsl_matrix_alloc(H_i->size2, X_i->size2);
+    gsl_matrix *temp3 = gsl_matrix_alloc(H_i->size2, H_i->size2);
+    gsl_permutation *p = gsl_permutation_alloc(H_i->size2);
+    int signum;
+
+    gsl_linalg_LU_decomp(temp1, p, &signum);
+    gsl_linalg_LU_invert(temp1, p, temp3);
+    gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, temp3, H_i_transpose, 0.0, theta_i);
+
+    gsl_matrix_free(H_i_transpose);
+    gsl_matrix_free(temp1);
+    gsl_matrix_free(temp2);
+    gsl_matrix_free(temp3);
+    gsl_permutation_free(p);
+}
+
+// void RAL(double H_i[N][N], double X_i[N], double theta_i[N])
+// {
+//     double H_i_transpose[N][N];
+//     double H_i_H_i_transpose[N][N];
+//     double H_i_H_i_transpose_inv[N][N];
+//     double H_i_transpose_X_i[N];
+
+//     // Calculate the transpose of H_i
+//     for (int i = 0; i < N; i++)
+//     {
+//         for (int j = 0; j < N; j++)
+//         {
+//             H_i_transpose[j][i] = H_i[i][j];
+//         }
+//     }
+
+//     // Calculate H_i_transpose * H_i
+//     cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, N, N, N, 1.0, H_i, N, H_i, N, 0.0, H_i_H_i_transpose, N);
+
+//     // Calculate the inverse of H_i_transpose * H_i
+//     LAPACKE_dgetrf(LAPACK_ROW_MAJOR, N, N, H_i_H_i_transpose, N, NULL);
+//     LAPACKE_dgetri(LAPACK_ROW_MAJOR, N, H_i_H_i_transpose, N, NULL);
+
+//     // Calculate H_i_transpose * X_i
+//     cblas_dgemv(CblasRowMajor, CblasNoTrans, N, N, 1.0, H_i_transpose, N, X_i, 1, 0.0, H_i_transpose_X_i, 1);
+
+//     // Calculate theta_i = (H_i_transpose * H_i)^-1 * H_i_transpose * X_i
+//     cblas_dgemv(CblasRowMajor, CblasNoTrans, N, N, 1.0, H_i_H_i_transpose, N, H_i_transpose_X_i, 1, 0.0, theta_i, 1);
+// }
