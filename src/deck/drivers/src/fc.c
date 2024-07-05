@@ -4,9 +4,8 @@
 #include "debug.h"
 #include <stdio.h>
 // #include <lapacke.h>
-
-#include <gsl/gsl_matrix.h>
-#include <gsl/gsl_linalg.h>
+#include <gsl_matrix.h>
+#include <gsl_linalg.h>
 
 setpoint_t setpoint;
 uint8_t formationControl = 0;

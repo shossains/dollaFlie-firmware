@@ -60,6 +60,17 @@ INCLUDES += -I$(LIB)/STM32_USB_Device_Library/Core/inc
 INCLUDES += -I$(LIB)/STM32_USB_OTG_Driver/inc
 INCLUDES += -I$(LIB)/STM32F4xx_StdPeriph_Driver/inc
 INCLUDES += -I$(LIB)/vl53l1 -I$(LIB)/vl53l1/core/inc
+INCLUDES += -I$(LIB)/gsl
+INCLUDES += -I$(LIB)/gsl/matrix
+INCLUDES += -I$(LIB)/gsl/err
+INCLUDES += -I$(LIB)/gsl/linalg
+INCLUDES += -I$(LIB)/gsl/complex
+INCLUDES += -I$(LIB)/gsl/block
+INCLUDES += -I$(LIB)/gsl/blas
+INCLUDES += -I$(LIB)/gsl/cblas
+INCLUDES += -I$(LIB)/gsl/vector
+INCLUDES += -I$(LIB)/gsl/permutation
+INCLUDES += -I$(LIB)/gsl/sys
 INCLUDES += -I$(KBUILD_OUTPUT)/include/generated
 
 # Here we tell Kbuild where to look for Kbuild files which will tell the
