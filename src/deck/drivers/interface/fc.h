@@ -15,7 +15,8 @@ typedef struct
     size_t numberOfNeighbours;
 } neighbours_t;
 
-void formationControlLoop(uint8_t droneId);
 uint8_t getNormalisedDroneId(uint8_t droneId);
 void updatePositions(uint8_t droneId, float x, float y, float z);
+void RAL(uint8_t i);
 void calcVelocity(uint8_t droneId);
+void formationControlLoop(uint8_t droneId);
