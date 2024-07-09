@@ -4,8 +4,7 @@
 #include "commander.h"
 #include "debug.h"
 #include <stdio.h>
-#include <gsl/gsl_matrix.h>
-#include <gsl/gsl_linalg.h>
+#include "cf_math.h"
 
 setpoint_t setpoint;
 uint8_t formationControl = 0;
@@ -18,7 +17,7 @@ uint8_t formationControl = 0;
 
 #define numberOfDrones 7
 uint8_t missing = 255;
-uint8_t droneIds[numberOfDrones] = {0x16, 0x26, 0x27, 0x28, 0x30, 0x33, 0x34};
+uint8_t droneIds[numberOfDrones] = {0x17, 0x18, 0x19, 0x20, 0x26, 0x30, 0x34};
 
 float weights[numberOfDrones][numberOfDrones] = {
     {0.2741, -0.2741, -0.2741, 0.1370, 0.1370, 0.0000, 0.0000},
@@ -39,13 +38,13 @@ neighbours_t adjacency[numberOfDrones] = {
     {(uint8_t[]){1, 4, 5}, 3}};
 
 pos_t positions[numberOfDrones] = {
-    {0.0, 0.0, 0.0},
-    {0.0, 0.0, 0.0},
-    {0.0, 0.0, 0.0},
-    {0.0, 0.0, 0.0},
-    {0.0, 0.0, 0.0},
-    {0.0, 0.0, 0.0},
-    {0.0, 0.0, 0.0}};
+    {2.0, 0.0, 0.0},
+    {1.0, 1.0, 0.0},
+    {1.0, -1.0, 0.0},
+    {0.0, 1.0, 0.0},
+    {0.0, -1.0, 0.0},
+    {-5.0, 5.0, 0.0},
+    {-1.0, -1.0, 0.0}};
 
 pos_t p[numberOfDrones] = {
     {2.0, 0.0, 0.0},
@@ -145,94 +144,92 @@ void setPositionSetpoint(setpoint_t *setpoint, float x, float y, float z, float 
 
 void RAL(uint8_t i)
 {
+    // arm_status result;
     uint8_t numberOfNeighbours = adjacency[i].numberOfNeighbours;
+    uint8_t M = numberOfNeighbours - 1; // Number of known neighbours
+    uint8_t N = 2;                      // Dimensions
 
-    gsl_matrix *X_i = gsl_matrix_alloc(numberOfNeighbours - 1, 2);
-    gsl_matrix *H_i = gsl_matrix_alloc(numberOfNeighbours - 1, 2);
+    float32_t vp_ij[N][1];
+    float32_t vH_i[M][N];
+    float32_t vX_i[M][N];
+    float32_t vH_i_T[N * M];
+    float32_t vH_i_T_H_i[N * N];
+    float32_t vH_i_T_X_i[N * N];
+    float32_t vH_i_T_H_i_inv[N * N];
+    float32_t vtheta_i[N * N];
+    float32_t vtheta_i_T[N * N];
+    float32_t vtheta_i_T_p_ij[N * 1];
 
-    uint8_t j;
+    // Populate p_ij = p[i] - p[missing]
+    pos_t p_i = p[i];
+    pos_t p_missing = p[missing];
+    vp_ij[0][0] = p_i.x - p_missing.x;
+    vp_ij[1][0] = p_i.y - p_missing.y;
+    // vp_ij[2][0] = tempz;
+
+    // Populate H_i and X_i
+    uint8_t j = 0;
+    uint8_t write = 0;
     for (j = 0; j < numberOfNeighbours; j++)
     {
         uint8_t curNeighbour = adjacency[i].neighbours[j];
         if (curNeighbour != missing)
         {
-            // X_i = actual positions of known neighbours (z_ij)
-            pos_t neighbourPosition = positions[curNeighbour];
-            gsl_matrix_set(X_i, j, 0, neighbourPosition.x);
-            gsl_matrix_set(X_i, j, 1, neighbourPosition.y);
-            // gsl_matrix_set(X_i, j, 2, neighbourPosition.z);
-
-            // H_i = formation displacement of known neighbours (p_ij)
-            pos_t p_i = p[i];
+            // Populate H_i = formation displacement of known neighbours (p_ij)
             pos_t p_neighbour = p[curNeighbour];
-            double tempx = p_i.x - p_neighbour.x;
-            double tempy = p_i.y - p_neighbour.y;
-            // double tempz = p_i.z - p_neighbour.z;
+            vH_i[write][0] = p_i.x - p_neighbour.x;
+            vH_i[write][1] = p_i.y - p_neighbour.y;
+            // vH_i[j][2] = p_i.y - p_neighbour.y;
 
-            gsl_matrix_set(H_i, j, 0, tempx);
-            gsl_matrix_set(H_i, j, 1, tempy);
-            // gsl_matrix_set(H_i, j, 2, tempz);
+            // Populate X_i = actual positions of known neighbours (z_ij)
+            pos_t neighbourPosition = positions[curNeighbour];
+            vX_i[write][0] = neighbourPosition.x;
+            vX_i[write][1] = neighbourPosition.y;
+            // vX_i[j][2] = neighbourPosition.z;
+
+            write++;
         }
     }
 
-    // Calculate H_i_transpose
-    gsl_matrix *H_i_transpose = gsl_matrix_alloc(H_i->size2, H_i->size1);
-    gsl_matrix_transpose_memcpy(H_i_transpose, H_i);
+    // Initialize the ARM matrix structures
+    arm_matrix_instance_f32 p_ij = {N, 1, (float32_t *)vp_ij};
+    arm_matrix_instance_f32 H_i = {M, N, (float32_t *)vH_i};
+    arm_matrix_instance_f32 X_i = {M, N, (float32_t *)vX_i};
+    arm_matrix_instance_f32 H_i_T = {N, M, vH_i_T};
+    arm_matrix_instance_f32 H_i_T_H_i = {N, N, vH_i_T_H_i};
+    arm_matrix_instance_f32 H_i_T_X_i = {N, N, vH_i_T_X_i};
+    arm_matrix_instance_f32 H_i_T_H_i_inv = {N, N, vH_i_T_H_i_inv};
+    arm_matrix_instance_f32 theta_i = {N, N, vtheta_i};
+    arm_matrix_instance_f32 theta_i_T = {N, N, vtheta_i_T};
+    arm_matrix_instance_f32 theta_i_T_p_ij = {N, 1, vtheta_i_T_p_ij};
+
+    // Transpose H_i
+    mat_trans(&H_i, &H_i_T);
 
     // Calculate H_i.T @ H_i
-    gsl_matrix *H_i_transpose_H_i = gsl_matrix_alloc(H_i->size2, H_i->size2);
-    gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, H_i_transpose, H_i, 0.0, H_i_transpose_H_i);
-
-    // Calculate the inverse of H_i.T @ H_i
-    gsl_matrix *inv_H_i_transpose_H_i = gsl_matrix_alloc(H_i->size2, H_i->size2);
-    gsl_matrix_memcpy(inv_H_i_transpose_H_i, H_i_transpose_H_i); // Copy H_i_transpose_H_i to inv_H_i_transpose_H_i
-    gsl_linalg_cholesky_decomp(inv_H_i_transpose_H_i);           // Cholesky decomposition
-    gsl_linalg_cholesky_invert(inv_H_i_transpose_H_i);           // Invert using Cholesky decomposition
+    mat_mult(&H_i_T, &H_i, &H_i_T_H_i);
 
     // Calculate H_i.T @ X_i
-    gsl_matrix *H_i_transpose_X_i = gsl_matrix_alloc(H_i->size2, X_i->size2);
-    gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, H_i_transpose, X_i, 0.0, H_i_transpose_X_i);
+    mat_mult(&H_i_T, &X_i, &H_i_T_X_i);
 
-    // Calculate theta_i = inv(H_i.T @ H_i) @ H_i.T @ X_i
-    gsl_matrix *theta_i = gsl_matrix_alloc(H_i->size2, X_i->size2);
-    gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, inv_H_i_transpose_H_i, H_i_transpose_X_i, 0.0, theta_i);
+    // Calculate inverse of H_i.T @ H_i
+    mat_inv(&H_i_T_H_i, &H_i_T_H_i_inv);
 
-    // Calculate theta_i_transpose
-    gsl_matrix *theta_i_transpose = gsl_matrix_alloc(theta_i->size2, theta_i->size1);
-    gsl_matrix_transpose_memcpy(theta_i_transpose, theta_i);
+    // Calculate theta_i
+    mat_mult(&H_i_T_H_i_inv, &H_i_T_X_i, &theta_i);
 
-    // Calculate p_ij = p[i] - p[missing]
-    pos_t p_i = p[i];
-    pos_t p_neighbour = p[missing];
-    double tempx = p_i.x - p_neighbour.x;
-    double tempy = p_i.y - p_neighbour.y;
-    // double tempz = p_i.z - p_neighbour.z;
+    // Transpose theta_i
+    mat_trans(&theta_i, &theta_i_T);
 
-    gsl_matrix *p_ij = gsl_matrix_alloc(1, 3);
-    gsl_matrix_set(p_ij, 0, 0, tempx);
-    gsl_matrix_set(p_ij, 0, 1, tempy);
-    // gsl_matrix_set(p_ij, 0, 2, tempz);
+    // Calcutate z_ij
+    mat_mult(&theta_i_T, &p_ij, &theta_i_T_p_ij);
 
-    // Calculate theta_i_transpose_pij = @ p[i] - p[missing]
-    gsl_matrix *theta_i_transpose_p_ij = gsl_matrix_alloc(theta_i_transpose->size2, p_ij->size2);
-    gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, theta_i_transpose, p_ij, 0.0, theta_i_transpose_p_ij);
-
-    // Set new position
-    positions[missing].x = p[i].x - (float)gsl_matrix_get(theta_i_transpose_p_ij, 0, 0);
-    positions[missing].y = p[i].y - (float)gsl_matrix_get(theta_i_transpose_p_ij, 0, 1);
-    // positions[missing].z = p[i].z - (float)gsl_matrix_get(theta_i_transpose_p_ij, 0, 2);
-
-    DEBUG_PRINT("( %.2f, %.2f )", (double)positions[missing].x, (double)positions[missing].y);
-
-    // Free allocated memory
-    gsl_matrix_free(H_i_transpose);
-    gsl_matrix_free(H_i_transpose_H_i);
-    gsl_matrix_free(inv_H_i_transpose_H_i);
-    gsl_matrix_free(H_i_transpose_X_i);
-    gsl_matrix_free(theta_i);
-    gsl_matrix_free(theta_i_transpose);
-    gsl_matrix_free(p_ij);
-    gsl_matrix_free(theta_i_transpose_p_ij);
+    // Update position of missing drone
+    // DEBUG_PRINT("t[0]: %.2f\n", (double)theta_i_T_p_ij.pData[0]);
+    // DEBUG_PRINT("t[1]: %.2f\n", (double)theta_i_T_p_ij.pData[1]);
+    positions[missing].x = p[i].x - theta_i_T_p_ij.pData[0];
+    positions[missing].y = p[i].y - theta_i_T_p_ij.pData[1];
+    // // positions[missing].z = p[i].z - theta_i_T_p_ij.pData[2];
 }
 
 void calcVelocity(uint8_t droneId)
@@ -244,7 +241,7 @@ void calcVelocity(uint8_t droneId)
     curPos.z = logGetFloat(logGetVarId("stateEstimate", "z"));
 
     uint8_t id = getNormalisedDroneId(droneId);
-    if (droneId != 255)
+    if (id != 255)
     {
         uint8_t numberOfNeighbours = adjacency[id].numberOfNeighbours;
         pos_t sum = {0.0, 0.0, 0.0};
@@ -253,10 +250,9 @@ void calcVelocity(uint8_t droneId)
         for (i = 0; i < numberOfNeighbours; i++)
         {
             uint8_t curNeighbour = adjacency[id].neighbours[i];
-
             if (curNeighbour == missing)
             {
-                RAL(droneId);
+                RAL(id);
             }
 
             pos_t neighbourPosition = positions[curNeighbour];
@@ -264,7 +260,7 @@ void calcVelocity(uint8_t droneId)
             sum.y = sum.y + (weights[id][curNeighbour] * (curPos.y - neighbourPosition.y));
         }
 
-        // setVelocitySetpoint(&setpoint, sum.x, sum.y, 1.5, 0);
+        setVelocitySetpoint(&setpoint, sum.x, sum.y, 1.5, 0);
     }
 }
 
@@ -272,14 +268,14 @@ void formationControlLoop(uint8_t droneId)
 {
     switch (droneId)
     {
-    case 0x26:
-        setPositionSetpoint(&setpoint, -0.75, -0.75, 1.5, 0);
+    case 0x17:
+        setPositionSetpoint(&setpoint, 2.0, 0.0, 1.5, 0);
         break;
-    case 0x27:
-        setPositionSetpoint(&setpoint, 0.75, -0.75, 1.5, 0);
+    case 0x18:
+        setPositionSetpoint(&setpoint, 1.0, 1.0, 1.5, 0);
         break;
-    case 0x28:
-        setPositionSetpoint(&setpoint, 0.75, 0.75, 1.5, 0);
+    case 0x19:
+        setPositionSetpoint(&setpoint, 1.0, -1.0, 1.5, 0);
         break;
     default:
         calcVelocity(droneId);

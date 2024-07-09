@@ -41,7 +41,6 @@ LDFLAGS += --specs=nosys.specs --specs=nano.specs $(PROCESSOR)
 image_LDFLAGS += -Wl,-Map=$(PROG).map,--cref,--gc-sections,--undefined=uxTopUsedPriority
 image_LDFLAGS += -L$(srctree)/tools/make/F405/linker
 image_LDFLAGS += -T $(LINKER_DIR)/FLASH_CLOAD.ld
-image_LDFLAGS += -L$(srctree)/src/lib/gsl/lib -lgsl -lgslcblas -lm
 
 INCLUDES += -I$(srctree)/vendor/CMSIS/CMSIS/Core/Include -I$(srctree)/vendor/CMSIS/CMSIS/DSP/Include
 INCLUDES += -I$(srctree)/vendor/libdw1000/inc
@@ -61,17 +60,6 @@ INCLUDES += -I$(LIB)/STM32_USB_Device_Library/Core/inc
 INCLUDES += -I$(LIB)/STM32_USB_OTG_Driver/inc
 INCLUDES += -I$(LIB)/STM32F4xx_StdPeriph_Driver/inc
 INCLUDES += -I$(LIB)/vl53l1 -I$(LIB)/vl53l1/core/inc
-INCLUDES += -I$(LIB)/gsl/include
-# INCLUDES += -I$(LIB)/gsl/matrix
-# INCLUDES += -I$(LIB)/gsl/err
-# INCLUDES += -I$(LIB)/gsl/linalg
-# INCLUDES += -I$(LIB)/gsl/complex
-# INCLUDES += -I$(LIB)/gsl/block
-# INCLUDES += -I$(LIB)/gsl/blas
-# INCLUDES += -I$(LIB)/gsl/cblas
-# INCLUDES += -I$(LIB)/gsl/vector
-# INCLUDES += -I$(LIB)/gsl/permutation
-# INCLUDES += -I$(LIB)/gsl/sys
 INCLUDES += -I$(KBUILD_OUTPUT)/include/generated
 
 # Here we tell Kbuild where to look for Kbuild files which will tell the
