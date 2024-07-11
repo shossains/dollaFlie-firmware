@@ -43,7 +43,7 @@ pos_t positions[numberOfDrones] = {
     {1.0, -1.0, 0.0},
     {0.0, 1.0, 0.0},
     {0.0, -1.0, 0.0},
-    {-5.0, 5.0, 0.0},
+    {-1.0, 1.0, 0.0},
     {-1.0, -1.0, 0.0}};
 
 pos_t p[numberOfDrones] = {
@@ -224,12 +224,18 @@ void RAL(uint8_t i)
     // Calcutate z_ij
     mat_mult(&theta_i_T, &p_ij, &theta_i_T_p_ij);
 
+    // double tem = (double)theta_i_T_p_ij.pData[0];
+    // double tem2 = (double)theta_i_T_p_ij.pData[1];
+    // DEBUG_PRINT("%f\n", tem);
+    // DEBUG_PRINT("%f\n", tem2);
     // Update position of missing drone
-    // DEBUG_PRINT("t[0]: %.2f\n", (double)theta_i_T_p_ij.pData[0]);
-    // DEBUG_PRINT("t[1]: %.2f\n", (double)theta_i_T_p_ij.pData[1]);
     positions[missing].x = p[i].x - theta_i_T_p_ij.pData[0];
     positions[missing].y = p[i].y - theta_i_T_p_ij.pData[1];
     // // positions[missing].z = p[i].z - theta_i_T_p_ij.pData[2];
+    double temp = (double)positions[missing].x;
+    double temp2 = (double)positions[missing].y;
+    DEBUG_PRINT("%f\n", temp);
+    DEBUG_PRINT("%f\n", temp2);
 }
 
 void calcVelocity(uint8_t droneId)
@@ -245,11 +251,15 @@ void calcVelocity(uint8_t droneId)
     {
         uint8_t numberOfNeighbours = adjacency[id].numberOfNeighbours;
         pos_t sum = {0.0, 0.0, 0.0};
+        // DEBUG_PRINT("numofneighbour: %d\n", numberOfNeighbours);
         uint8_t i;
 
         for (i = 0; i < numberOfNeighbours; i++)
         {
             uint8_t curNeighbour = adjacency[id].neighbours[i];
+            // DEBUG_PRINT("i: %d\n", i);
+            // DEBUG_PRINT("missing: %d\n", missing);
+            // DEBUG_PRINT("curneigh: %d\n", curNeighbour);
             if (curNeighbour == missing)
             {
                 RAL(id);
@@ -260,7 +270,7 @@ void calcVelocity(uint8_t droneId)
             sum.y = sum.y + (weights[id][curNeighbour] * (curPos.y - neighbourPosition.y));
         }
 
-        setVelocitySetpoint(&setpoint, sum.x, sum.y, 1.5, 0);
+        // setVelocitySetpoint(&setpoint, sum.x, sum.y, 1.5, 0);
     }
 }
 
@@ -281,6 +291,8 @@ void formationControlLoop(uint8_t droneId)
         calcVelocity(droneId);
         break;
     }
+
+    return;
 }
 
 PARAM_GROUP_START(fc)
