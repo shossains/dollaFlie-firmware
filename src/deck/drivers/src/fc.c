@@ -16,8 +16,8 @@ uint8_t formationControl = 0;
 //               6 --- 4 --- 2
 
 #define numberOfDrones 7
-uint8_t missing = 255;
-uint8_t droneIds[numberOfDrones] = {0x17, 0x18, 0x19, 0x20, 0x26, 0x30, 0x34};
+static uint8_t missing = 255;
+uint8_t droneIds[numberOfDrones] = {0x17, 0x18, 0x19, 0x20, 0x26, 0x30, 0x32};
 
 float weights[numberOfDrones][numberOfDrones] = {
     {0.2741, -0.2741, -0.2741, 0.1370, 0.1370, 0.0000, 0.0000},
