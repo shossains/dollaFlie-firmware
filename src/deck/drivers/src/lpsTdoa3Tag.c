@@ -154,7 +154,7 @@ typedef enum
 } TxOwnPosition;
 #endif
 
-uint8_t formationControlToggle = 0;
+static uint8_t formationControlToggle = 0;
 static uint8_t droneId;
 
 statsCntRateLogger_t rxRate;
