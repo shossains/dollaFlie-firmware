@@ -124,7 +124,7 @@ static const locoAddress_t base_address = 0xcfbc;
 #define STATS_INTERVAL 500
 
 #define SYSTEM_TX_FREQ 400.0f
-#define ANCHOR_MAX_TX_FREQ 400.0f
+#define ANCHOR_MAX_TX_FREQ 50.0f
 // We need a lower limit of minimum tx rate. The TX timestamp in the protocol is
 // only 32 bits (equal to 67 ms) and we want to avoid double wraps of the TX counter.
 // To have some margin set the lowest tx frequency to 20 Hz (= 50 ms)
