@@ -161,9 +161,6 @@ statsCntRateLogger_t rxRate;
 statsCntRateLogger_t P2PRate;
 statsCntRateLogger_t controlRate;
 
-static SemaphoreHandle_t xSemaphore;
-uint8_t sofian = 1;
-
 typedef struct
 {
   uint8_t type;
@@ -823,17 +820,10 @@ static uint32_t startNextEvent(dwDevice_t *dev, const uint32_t now)
 
 static uint32_t onEvent(dwDevice_t *dev, uwbEvent_t event)
 {
-  if (formationControlToggle && sofian == 1)
+  if (formationControlToggle)
   {
-    // sofian = 0;
-    // STATS_CNT_RATE_EVENT(&controlRate);
-    // formationControlLoop(droneId);
-    if (xSemaphoreTake(xSemaphore, 0) == pdTRUE)
-    {
-      STATS_CNT_RATE_EVENT(&controlRate);
-      formationControlLoop(droneId);
-      xSemaphoreGive(xSemaphore);
-    }
+    STATS_CNT_RATE_EVENT(&controlRate);
+    formationControlLoop(droneId);
   }
 
   switch (event)
@@ -907,7 +897,6 @@ static uint8_t getActiveAnchorIdList(uint8_t unorderedAnchorList[], const int ma
 
 static void Initialize(dwDevice_t *dev)
 {
-  xSemaphore = xSemaphoreCreateMutex();
 
   droneId = configblockGetRadioAddress() & 0xFF;
 
@@ -936,7 +925,7 @@ static void Initialize(dwDevice_t *dev)
   ctx.txSeqNr = 0;
   ctx.latestTransmissionTime_ms = 0;
   ctx.nextTxTick = 0;
-  ctx.isTwrActive = true;
+  ctx.isTwrActive = false;
   ctx.twrSendPosition = 1;
   ctx.twrStdDev = 0.25;
   ctx.useTwrForPositionEstimation = false;
