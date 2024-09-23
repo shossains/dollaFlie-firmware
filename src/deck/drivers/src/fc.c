@@ -38,13 +38,13 @@ neighbours_t adjacency[numberOfDrones] = {
     {(uint8_t[]){1, 4, 5}, 3}};
 
 pos_t positions[numberOfDrones] = {
-    {2.0, 0.0, 0.0},
-    {1.0, 1.0, 0.0},
-    {1.0, -1.0, 0.0},
-    {0.0, 1.0, 0.0},
-    {0.0, -1.0, 0.0},
-    {-1.0, 1.0, 0.0},
-    {-1.0, -1.0, 0.0}};
+    {0.0, 0.0, 0.0},
+    {0.0, 0.0, 0.0},
+    {0.0, 0.0, 0.0},
+    {0.0, 0.0, 0.0},
+    {0.0, 0.0, 0.0},
+    {0.0, 0.0, 0.0},
+    {0.0, 0.0, 0.0}};
 
 pos_t p[numberOfDrones] = {
     {2.0, 0.0, 0.0},
@@ -62,7 +62,8 @@ pos_t p[numberOfDrones] = {
 //               0 ------ 1
 
 // #define numberOfDrones 4
-// uint8_t droneIds[numberOfDrones] = {0x26, 0x27, 0x28, 0x33};
+// uint8_t missing = 255;
+// uint8_t droneIds[numberOfDrones] = {0x18, 0x19, 0x20, 0x26};
 
 // float weights[numberOfDrones][numberOfDrones] = {
 //     {1.0, -1.0, 1.0, -1.0},
@@ -77,10 +78,16 @@ pos_t p[numberOfDrones] = {
 //     {(uint8_t[]){0, 1, 2}, 3}};
 
 // pos_t positions[numberOfDrones] = {
-//     {0.0, 0.0, 0.0},
-//     {0.0, 0.0, 0.0},
-//     {0.0, 0.0, 0.0},
-//     {0.0, 0.0, 0.0}};
+//     {-1.0, 1.0, 0.0},
+//     {-1.0, -1.0, 0.0},
+//     {1.0, -1.0, 0.0},
+//     {1.0, 1.0, 0.0}};
+
+// pos_t p[numberOfDrones] = {
+//     {-1.0, 1.0, 0.0},
+//     {-1.0, -1.0, 0.0},
+//     {1.0, -1.0, 0.0},
+//     {1.0, 1.0, 0.0}};
 
 uint8_t getNormalisedDroneId(uint8_t droneId)
 {
@@ -137,7 +144,7 @@ void setPositionSetpoint(setpoint_t *setpoint, float x, float y, float z, float 
     setpoint->position.z = z;
     setpoint->attitudeRate.yaw = yawrate;
 
-    setpoint->velocity_body = true;
+    setpoint->velocity_body = false;
 
     commanderSetSetpoint(setpoint, 2);
 }
@@ -224,18 +231,14 @@ void RAL(uint8_t i)
     // Calcutate z_ij
     mat_mult(&theta_i_T, &p_ij, &theta_i_T_p_ij);
 
-    // double tem = (double)theta_i_T_p_ij.pData[0];
-    // double tem2 = (double)theta_i_T_p_ij.pData[1];
-    // DEBUG_PRINT("%f\n", tem);
-    // DEBUG_PRINT("%f\n", tem2);
     // Update position of missing drone
-    positions[missing].x = p[i].x - theta_i_T_p_ij.pData[0];
-    positions[missing].y = p[i].y - theta_i_T_p_ij.pData[1];
-    // // positions[missing].z = p[i].z - theta_i_T_p_ij.pData[2];
-    double temp = (double)positions[missing].x;
-    double temp2 = (double)positions[missing].y;
-    DEBUG_PRINT("%f\n", temp);
-    DEBUG_PRINT("%f\n", temp2);
+    positions[missing].x = positions[i].x - theta_i_T_p_ij.pData[0];
+    positions[missing].y = positions[i].y - theta_i_T_p_ij.pData[1];
+    // positions[missing].z = p[i].z - theta_i_T_p_ij.pData[2];
+    // double temp = (double)positions[missing].x;
+    // double temp2 = (double)positions[missing].y;
+    // DEBUG_PRINT("%f\n", temp);
+    // DEBUG_PRINT("%f\n", temp2);
 }
 
 void calcVelocity(uint8_t droneId)
@@ -244,22 +247,18 @@ void calcVelocity(uint8_t droneId)
     pos_t curPos;
     curPos.x = logGetFloat(logGetVarId("stateEstimate", "x"));
     curPos.y = logGetFloat(logGetVarId("stateEstimate", "y"));
-    curPos.z = logGetFloat(logGetVarId("stateEstimate", "z"));
+    // curPos.z = logGetFloat(logGetVarId("stateEstimate", "z"));
 
     uint8_t id = getNormalisedDroneId(droneId);
     if (id != 255)
     {
         uint8_t numberOfNeighbours = adjacency[id].numberOfNeighbours;
         pos_t sum = {0.0, 0.0, 0.0};
-        // DEBUG_PRINT("numofneighbour: %d\n", numberOfNeighbours);
         uint8_t i;
 
         for (i = 0; i < numberOfNeighbours; i++)
         {
             uint8_t curNeighbour = adjacency[id].neighbours[i];
-            // DEBUG_PRINT("i: %d\n", i);
-            // DEBUG_PRINT("missing: %d\n", missing);
-            // DEBUG_PRINT("curneigh: %d\n", curNeighbour);
             if (curNeighbour == missing)
             {
                 RAL(id);
@@ -268,9 +267,10 @@ void calcVelocity(uint8_t droneId)
             pos_t neighbourPosition = positions[curNeighbour];
             sum.x = sum.x + (weights[id][curNeighbour] * (curPos.x - neighbourPosition.x));
             sum.y = sum.y + (weights[id][curNeighbour] * (curPos.y - neighbourPosition.y));
+            // sum.z = sum.z + (weights[id][curNeighbour] * (curPos.z - neighbourPosition.z));
         }
 
-        // setVelocitySetpoint(&setpoint, sum.x, sum.y, 1.5, 0);
+        setVelocitySetpoint(&setpoint, sum.x, sum.y, 1.5, 0);
     }
 }
 
@@ -279,13 +279,13 @@ void formationControlLoop(uint8_t droneId)
     switch (droneId)
     {
     case 0x17:
-        setPositionSetpoint(&setpoint, 2.0, 0.0, 1.5, 0);
+        setPositionSetpoint(&setpoint, 1.0, 0.0, 1.5, 0);
         break;
     case 0x18:
-        setPositionSetpoint(&setpoint, 1.0, 1.0, 1.5, 0);
+        setPositionSetpoint(&setpoint, 0.33, 0.75, 1.5, 0);
         break;
     case 0x19:
-        setPositionSetpoint(&setpoint, 1.0, -1.0, 1.5, 0);
+        setPositionSetpoint(&setpoint, 0.25, -0.75, 1.5, 0);
         break;
     default:
         calcVelocity(droneId);
