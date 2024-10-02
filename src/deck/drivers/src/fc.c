@@ -214,6 +214,10 @@ void RAL(uint8_t i)
     vp_ij[1][0] = p_i.y - p_missing.y;
     // vp_ij[2][0] = tempz;
 
+    pos_t curPos;
+    curPos.x = logGetFloat(logGetVarId("stateEstimate", "x"));
+    curPos.y = logGetFloat(logGetVarId("stateEstimate", "y"));
+
     // Populate H_i and X_i
     uint8_t j = 0;
     uint8_t write = 0;
@@ -230,8 +234,8 @@ void RAL(uint8_t i)
 
             // Populate X_i = actual positions of known neighbours (z_ij)
             pos_t neighbourPosition = positions[curNeighbour];
-            vX_i[write][0] = neighbourPosition.x;
-            vX_i[write][1] = neighbourPosition.y;
+            vX_i[write][0] = curPos.x - neighbourPosition.x;
+            vX_i[write][1] = curPos.y - neighbourPosition.y;
             // vX_i[j][2] = neighbourPosition.z;
 
             write++;
@@ -272,13 +276,9 @@ void RAL(uint8_t i)
     mat_mult(&theta_i_T, &p_ij, &theta_i_T_p_ij);
 
     // Update position of missing drone
-    positions[missing].x = positions[i].x - theta_i_T_p_ij.pData[0];
-    positions[missing].y = positions[i].y - theta_i_T_p_ij.pData[1];
+    positions[missing].x = curPos.x - theta_i_T_p_ij.pData[0];
+    positions[missing].y = curPos.y - theta_i_T_p_ij.pData[1];
     // positions[missing].z = p[i].z - theta_i_T_p_ij.pData[2];
-    // double temp = (double)positions[missing].x;
-    // double temp2 = (double)positions[missing].y;
-    // DEBUG_PRINT("%f\n", temp);
-    // DEBUG_PRINT("%f\n", temp2);
 }
 
 void calcVelocity(uint8_t droneId)
@@ -322,10 +322,10 @@ void formationControlLoop(uint8_t droneId)
         setPositionSetpoint(&setpoint, 1.0, 0.0, 1.5, 0);
         break;
     case 0x18:
-        setPositionSetpoint(&setpoint, 0.33, 0.75, 1.5, 0);
+        setPositionSetpoint(&setpoint, 0.33, 1, 1.5, 0);
         break;
     case 0x19:
-        setPositionSetpoint(&setpoint, 0.25, -0.75, 1.5, 0);
+        setPositionSetpoint(&setpoint, 0.33, -1, 1.5, 0);
         break;
     default:
         calcVelocity(droneId);
