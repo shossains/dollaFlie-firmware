@@ -148,7 +148,7 @@ void updatePositions(uint8_t droneId, float x, float y, float z)
     uint8_t id = getNormalisedDroneId(droneId);
 
     // Update position of given drone
-    if (id != 255)
+    if (id != 255 && id != missing)
     {
         positions[id].x = x;
         positions[id].y = y;
